@@ -55,24 +55,24 @@ namespace OhadSoft.AzureLetsEncrypt.Renewal.Management
             var dnsProvider = GetDnsProvider(renewalParams);
 
             bool staging = acmeConfig.BaseUri.Contains("staging", StringComparison.OrdinalIgnoreCase);
-            if (dnsProvider != null)
+            var addNewCert = await CheckCertAddition(renewalParams, webAppEnvironment, acmeConfig, staging).ConfigureAwait(false);
+            if (addNewCert)
             {
-                await GetDnsRenewalService(renewalParams, dnsProvider, webAppEnvironment).Run(
-                    new AcmeDnsRequest
-                    {
-                        AcmeEnvironment = staging ? (AcmeEnvironment)new LetsEncryptStagingV2() : new LetsEncryptV2(),
-                        RegistrationEmail = acmeConfig.RegistrationEmail,
-                        Host = acmeConfig.Host,
-                        PFXPassword = CertificateHelper.GenerateSecurePassword(),
-                        CsrInfo = new CsrInfo(),
-                    }, renewalParams.RenewXNumberOfDaysBeforeExpiration).ConfigureAwait(false);
-            }
-            else
-            {
-                var manager = CertificateManager.CreateKuduWebAppCertificateManager(webAppEnvironment, acmeConfig, certificateServiceSettings, new AuthProviderConfig());
-                var addNewCert = await CheckCertAddition(renewalParams, webAppEnvironment, acmeConfig, staging).ConfigureAwait(false);
-                if (addNewCert)
+                if (dnsProvider != null)
                 {
+                    await GetDnsRenewalService(renewalParams, dnsProvider, webAppEnvironment).Run(
+                        new AcmeDnsRequest
+                        {
+                            AcmeEnvironment = staging ? new LetsEncryptStagingV2() : new LetsEncryptV2(),
+                            RegistrationEmail = acmeConfig.RegistrationEmail,
+                            Host = acmeConfig.Host,
+                            PFXPassword = CertificateHelper.GenerateSecurePassword(),
+                            CsrInfo = new CsrInfo(),
+                        }, renewalParams.RenewXNumberOfDaysBeforeExpiration).ConfigureAwait(false);
+                }
+                else
+                {
+                    var manager = CertificateManager.CreateKuduWebAppCertificateManager(webAppEnvironment, acmeConfig, certificateServiceSettings, new AuthProviderConfig());
                     await manager.AddCertificate().ConfigureAwait(false);
                 }
             }
